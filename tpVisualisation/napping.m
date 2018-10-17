@@ -55,7 +55,7 @@ for k=1:nbElements
     % Enforce boundary constraint function using setPositionConstraintFcn
     setPositionConstraintFcn(h,fcn);
     setColor(h, colors(k, :));
-    setString(h, fileNames(k).name(1:3));
+   % setString(h, fileNames(k).name(1:3));
     set(h, 'UserData', [datasetPath '/' fileNames(k).name]) ;
 end
 axis square
