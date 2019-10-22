@@ -10,13 +10,14 @@ function napping(datasetPath, dataFileName, locations, displayStyle, playSound)
 
 % Copyright: Mathieu Lagrange
 
-if ~exist('datasetPath', 'var')  || isempty(datasetPath), datasetPath = '~/Desktop/environmentalSounds'; end
+if ~exist('datasetPath', 'var')  || isempty(datasetPath), datasetPath = 'musicGenre'; end
 if ~exist('dataFileName', 'var') || isempty(dataFileName), dataFileName = ['napping' date() '_' getenv('USER') getenv('USERNAME')]; end
 if ~exist('displayStyle', 'var') || isempty(displayStyle), displayStyle = 'none'; end
 if ~exist('playSound', 'var') || isempty(playSound), playSound = 1; end
 
 fileNames = dir([datasetPath '/*wav']);
 nbElements = length(fileNames);
+idx=1:nbElements;
 
 if ~nbElements
     disp(['Unable to find any wav files at given location:' datasetPath]);
@@ -27,7 +28,8 @@ if exist([dataFileName '.csv'], 'file')
     data = csvread([dataFileName '.csv']);
     if size(data, 1)==nbElements
         locations = data(:, 1:2);
-        colors = data(:, 3:end);
+        colors = data(:, 3:end-1);
+        idx = data(:, end);
     end
 end
 
@@ -49,14 +51,16 @@ userData.audioPlayer = audioplayer(0, 80);
 set(gcf, 'Userdata', userData);
 
 for k=1:nbElements
-    h = impoint(gca, locations(k, 1), locations(k, 2));
+    h = drawpoint(gca, 'position', [locations(k, 1), locations(k, 2)], 'color', colors(k, :));
     % Construct boundary constraint function
-    fcn = makeConstrainToRectFcn('impoint', [minLocations(1) maxLocations(1)], [minLocations(2) maxLocations(2)]);
+%     fcn = makeConstrainToRectFcn('impoint', [minLocations(1) maxLocations(1)], [minLocations(2) maxLocations(2)]);
     % Enforce boundary constraint function using setPositionConstraintFcn
-    setPositionConstraintFcn(h,fcn);
-    setColor(h, colors(k, :));
+%     setPositionConstraintFcn(h,fcn);
+%     setColor(h, colors(k, :));
    % setString(h, fileNames(k).name(1:3));
-    set(h, 'UserData', [datasetPath '/' fileNames(k).name]) ;
+   t.index = k;
+   t.fileName = [datasetPath '/' fileNames(idx(k)).name];
+    set(h, 'UserData', t) ;
 end
 axis square
 
@@ -67,18 +71,15 @@ pos=get(gca,'CurrentPoint');
 
 userData = get(figure(1), 'userdata');
 
-t=findobj(gcf, 'type', 'hggroup');
+t=findobj(gcf, 'type', 'images.roi.point');
 for k=1:length(t)
-    po = get(t(k), 'children');
-    po = po(3);
-    p(k, :) = [get(po, 'xdata')  get(po, 'ydata')];
-    color(k, :) = get(po, 'MarkerFaceColor');
+    p(k, :) = t(k).Position;
     d(k) = norm(pos(1, 1:2)-p(k, :));
 end
 [~, i] = min(d);
 
-fileName = get(t(i), 'userdata');
-[s, fs] = wavread(fileName);
+tt = get(t(i), 'userdata');
+[s, fs] = audioread(tt.fileName);
 
 switch(userData.displayStyle)
     case 'waveform'
@@ -100,12 +101,9 @@ if userData.playSound
         a=audioplayer(s, fs);
         userData.audioPlayer = a;
         set(figure(1), 'userData', userData);
-        po = get(t(i), 'children');
-        ms = get(po(3), 'MarkerSize');
-        set(po(3), 'MarkerSize', 20)
+        t(i).Label = 'playing';
         playblocking(a);
-        set(po(3), 'MarkerSize', ms)
-        set(t, 'visible', 'on');
+        t(i).Label = '';
     end
 end
 
@@ -115,20 +113,21 @@ function saveData(hObject,~)
 
 userData = get(figure(1), 'userdata');
 
-t=findobj(gcf, 'type', 'hggroup');
+t=findobj(gcf, 'type', 'images.roi.point');
 t=sort(t);
 
 for k=1:length(t)
-    fn{k} = get(t(k), 'UserData');
+    fn = get(t(k), 'UserData');
+    tt(k) = fn.index;
 end
 
 for k=1:length(t)
-    po = get(t(k), 'children');
-    po = po(3);
-    p(k, :) = [get(po, 'xdata')  get(po, 'ydata')];
-    color(k, :) = get(po, 'MarkerFaceColor');
+%     po = get(t(k), 'children');
+%     po = po(1);
+    p(k, :) = t(k).Position;
+    color(k, :) = t(k).Color;
 end
 
-csvwrite([userData.dataFileName '.csv'], [p color]);
+csvwrite([userData.dataFileName '.csv'], [p color tt']);
 disp('saved')
 
